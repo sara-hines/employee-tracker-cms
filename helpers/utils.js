@@ -1,7 +1,36 @@
 const pool = require('../connection/pool.js');
 
+
+let queryDepartments = function() {
+    return new Promise(function(resolve, reject) {
+        let query = `SELECT * FROM department ORDER BY id ASC;`;
+        pool.query(query, (error, result) => {
+            if(error) {
+                return reject(error);
+            }
+            resolve(result.rows);
+        });
+    });
+}
+
+
+let queryRoles = function() {
+    return new Promise(function(resolve, reject) {
+        let query = `SELECT job_role.id, job_role.title, job_role.salary, department.department_name 
+        FROM job_role 
+        JOIN department ON job_role.department_id = department.id;`;
+        pool.query(query, (error, result) => {
+            if(error) {
+                return reject(error);
+            }
+            resolve(result.rows);
+        });
+    });
+}
+
+
 // THIS IS WHAT I WANT TO HAVE HAPPEN IN THE UTILS FOLDER
-let listEmployees = function() {
+let queryEmployees = function() {
     return new Promise(function(resolve, reject) {
         let query = `SELECT employee.id, employee.first_name, employee.last_name, job_role.title, department.department_name, job_role.salary, manager.first_name AS manager_first_name, manager.last_name AS manager_last_name 
         FROM employee 
@@ -17,13 +46,16 @@ let listEmployees = function() {
     });
 }
 
-
-let insertIntoDept = function(newDepartment) {
-    let query = `INSERT INTO department (department_name)
-    VALUES
-        ('${newDepartment}');`;
-    pool.query(query, (error, result) => {
-        console.log(`The new department, ${newDepartment}, has been added.`);
+let insertDept = function(newDepartment) {
+    return new Promise(function(resolve, reject) {
+        let query = `INSERT INTO department (department_name)
+        VALUES
+            ('${newDepartment}');`;
+        pool.query(query, (error, result) => {
+            if(error) {
+                return reject(error);
+            }
+        });
     });
 }
 
@@ -41,34 +73,37 @@ let findDeptId = function(department) {
 }
 
 
-function insertIntoJobRole(newRole, salary, deptId) {
-    let query = `INSERT INTO job_role (title, salary, department_id)
-    VALUES
-        ('${newRole}', '${salary}', '${deptId}');`;
+function insertJobRole(newRole, salary, deptId) {
+    return new Promise(function(resolve, reject) {
+        let query = `INSERT INTO job_role (title, salary, department_id)
+        VALUES
+            ('${newRole}', '${salary}', '${deptId}');`;
         pool.query(query, (error, result) => {
-            console.log(`The new role, ${newRole}, has been added.`);
+            if(error) {
+                return reject(error);
+            }
         });
+    });
 }
 
 
 let findRoleId = function(role) {
     return new Promise(function(resolve, reject) {
-        let query2 = `SELECT id FROM job_role WHERE title = '${role}';`;
-    pool.query(query2, (error, result) => {
-        let roleId = result.rows[0]?.id;
-        if(error) {
-            return reject(error);
-        }
-        resolve(roleId);
-    });
-    });
-    
+        let query = `SELECT id FROM job_role WHERE title = '${role}';`;
+        pool.query(query, (error, result) => {
+            let roleId = result.rows[0].id;
+            if(error) {
+                return reject(error);
+            }
+            resolve(roleId);
+        });
+    }); 
 }
 
 
 let findManagerId = function(manager) {
     return new Promise(function(resolve, reject) {
-        let managerNameArray = manager.split(" ");
+        let managerNameArray = manager.split(' ');
         let managerFirstName = managerNameArray[0];
         let managerLastName = managerNameArray[1];
 
@@ -83,12 +118,14 @@ let findManagerId = function(manager) {
     });
 }
 
-let insertIntoEmployee = function(firstName, lastName, managerId, roleId) {
+let insertEmployee = function(firstName, lastName, managerId, roleId) {
     let query = `INSERT INTO employee (first_name, last_name, manager_id, role_id)
     VALUES
         ('${firstName}', '${lastName}', '${managerId}', '${roleId}');`;
     pool.query(query, (error, result) => {
-        // console.log(`The new employee, ${firstName} ${lastName}, has been added.`);
+        if(error) {
+            return reject(error);
+        }
     });
 }
 
@@ -103,40 +140,50 @@ let generateListEmployees = function() {
                 resolve(result.rows);
             }
             return result.rows;
-            // generateArrayEmployees(result.rows);
         });
     });
 }
 
 
-let generateArrayEmployees = function() {
+let generateArrayEmployees = function(unformattedEmployees) {
     return new Promise(function(resolve, reject) {
-        let unformattedEmployees = generateListEmployees();
-        console.log(unformattedEmployees);
-        // let listOfEmployees = [];
-        // function formatList(employee) {
-        //     let employeeString = `${employee.first_name} ${employee.last_name}`
-        //     listOfEmployees.push(employeeString);
-        // }
-        // // console.log(unformattedEmployees);
-        // unformattedEmployees.forEach(formatList);
-        // resolve(listOfEmployees);
-        // // console.log(listOfEmployees);
-        // return listEmployees;
-        // The below successfully gets us an array of strings, each string being the first and last name of an employee
-        // console.log(listOfEmployees);
+        let listOfEmployees = [];
+        function formatList(employee) {
+            let employeeString = `${employee.first_name} ${employee.last_name}`
+            listOfEmployees.push(employeeString);
+        }
+        unformattedEmployees.forEach(formatList);
+        resolve(listOfEmployees);
     });
 }
 
 
-module.exports = { 
-    listEmployees, 
-    insertIntoDept, 
+let updateRole = function(ee, newRoleId) {
+    let employeeNameArray = ee.split(' ');
+    let employeeFirstName = employeeNameArray[0];
+    let employeeLastName = employeeNameArray[1];
+    return new Promise(async function(resolve, reject) {
+        let query = `UPDATE employee SET role_id = ${newRoleId} WHERE employee.first_name = '${employeeFirstName}' AND employee.last_name = '${employeeLastName}';`;
+        pool.query(query, (error, result) => {
+            if(error) {
+                return reject(error);
+            }
+        });
+    });
+}
+
+
+module.exports = {
+    queryDepartments, 
+    queryRoles,
+    queryEmployees, 
+    insertDept, 
     findDeptId, 
-    insertIntoJobRole, 
+    insertJobRole, 
     findRoleId, 
     findManagerId, 
-    insertIntoEmployee,
+    insertEmployee,
     generateListEmployees, 
     generateArrayEmployees,
+    updateRole,
 };

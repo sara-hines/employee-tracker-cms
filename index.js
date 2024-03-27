@@ -1,15 +1,18 @@
 let inquirer = require('inquirer');
 let consoleTable = require('console.table');
 let { 
-        listEmployees, 
-        insertIntoDept, 
+        queryDepartments,
+        queryRoles,
+        queryEmployees, 
+        insertDept, 
         findDeptId, 
-        insertIntoJobRole, 
+        insertJobRole, 
         findRoleId,
         findManagerId, 
-        insertIntoEmployee, 
+        insertEmployee, 
         generateListEmployees, 
         generateArrayEmployees,
+        updateRole,
     }
     = require('./helpers/utils.js');
 let pool = require('./connection/pool.js');
@@ -41,46 +44,30 @@ function init() {
                 addRole();
             } else if (answer.chooseAction === 'Add an employee') {
                 addEmployee();
-            // } else if (answer.chooseAction === 'Update an employee role') {
-                // async function generateFormattedEmployees() {
-                //     const formattedEmployees = await generateArrayEmployees();
-                //     // console.log(formattedEmployees);
-                //     // return formattedEmployees;
-                // }
-                // generateFormattedEmployees()
-                // .then(async (formattedEmployees) => {
-                //     console.log(formattedEmployees);
-                // });
-                // let formattedEmployees = generateFormattedEmployees();
-                // console.log(formattedEmployees);
-                // promptUpdateRole(formattedEmployees);
+            } else if (answer.chooseAction === 'Update an employee role') {
+                generateListEmployees()
+                .then((unformattedEmployees) => generateArrayEmployees(unformattedEmployees))
+                .then((formattedEmployees) => promptNewRole(formattedEmployees));
             }
         });
 }
 
 
-function viewDepartments() {
-    let query = `SELECT * FROM department ORDER BY id ASC;`;
-    pool.query(query, (error, result) => {
-        console.table(result.rows);
-        init();
-    });
+async function viewDepartments() {
+    let departments = await queryDepartments();
+    console.table(departments);
+    init();
 }
 
-
-function viewRoles() {
-    let query = `SELECT job_role.id, job_role.title, job_role.salary, department.department_name 
-    FROM job_role 
-    JOIN department ON job_role.department_id = department.id;`;
-    pool.query(query, (error, result) => {
-        console.table(result.rows);
-        init();
-    });
+async function viewRoles() {
+    let roles = await queryRoles();
+    console.table(roles);
+    init();
 }
 
 // THIS IS WHAT I WANT TO HAVE HAPPEN IN INDEX.JS
 async function viewEmployees() {
-    const employees = await listEmployees();
+    const employees = await queryEmployees();
     console.table(employees);
     init();
 }
@@ -96,7 +83,8 @@ function addDepartment() {
             }
         ])
         .then(({newDepartment}) => {
-            insertIntoDept(newDepartment);
+            insertDept(newDepartment);
+            console.log(`\nThe new department, ${newDepartment}, has been added.\n`);
             init();
         });
 }
@@ -125,14 +113,15 @@ function addRole() {
         .then(({newRole, salary, department}) => {
             findDeptId(department)
         .then(function(deptId) {
-            insertIntoJobRole(newRole, salary, deptId);
+            insertJobRole(newRole, salary, deptId);
+            console.log(`\nThe new role, ${newRole}, has been added.\n`);
             init();
         });
     });
 }
 
 
-// Let the user add an employee. User should be prompted to enter the employee’s first name, last name, role, and manager.
+// Let the user add an employee. User should be prompted to enter the employee’s first name, last name, manager, and role.
 function addEmployee() {
     inquirer
         .prompt([
@@ -160,36 +149,48 @@ function addEmployee() {
         .then (async ({ firstName, lastName, manager, role }) => {
             let roleId = await findRoleId(role);
             let managerId = await findManagerId(manager);
-            console.log(roleId);
-            console.log(managerId);
-            if (firstName && lastName && managerId && roleId) {
-                insertIntoEmployee(firstName, lastName, managerId, roleId);
+
+            if (!firstName || !lastName || !manager || !roleId) {
+                console.error('\nThe new employee could not be added; please check your responses and try again.\n');
+                return;
             }
 
+            insertEmployee(firstName, lastName, managerId, roleId);
+            console.log(`\nThe new employee, ${firstName} ${lastName}, has been added.\n`);
+            
             init();
         });
 }
 
-
-// function promptUpdateRole(formattedEmployees) {
-//     inquirer
-//         .prompt([
-//             {
-//                 type: 'list', 
-//                 name: 'employee',
-//                 message: 'Please select an employee to update.',
-//                 choices: formattedEmployees
-//             },
-//             {
-//                 type: 'input', 
-//                 name: 'newRole', 
-//                 message: 'Please enter the employee\'s new role.'
-//             }
-//         ]);
-// }
+function promptNewRole(formattedEmployees) {
+    inquirer
+        .prompt([
+            {
+                type: 'list', 
+                name: 'employee',
+                message: 'Please select an employee to update.',
+                choices: formattedEmployees
+            },
+            {
+                type: 'input', 
+                name: 'newRole', 
+                message: 'Please enter the employee\'s new role.'
+            }
+        ])
+        .then(async ({employee, newRole}) => {
+            let roleId = await findRoleId(newRole);
+            let returnVals = {
+                ee: employee, 
+                newRoleId: roleId
+            }
+            return returnVals;
+        })
+        .then(({ee, newRoleId}) => {
+            updateRole(ee, newRoleId);
+            console.log(`\n${ee}'s role has been updated.\n`);
+        })
+        .then(() => init());
+}
 
 
 init();
-
-
-
