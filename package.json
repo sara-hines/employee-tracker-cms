@@ -5,15 +5,17 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node index.js",
+    "seed": "node db/seeds.sql"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "console-log-colors": "^0.4.0",
     "console.table": "^0.10.0",
     "inquirer": "8.2.4",
-    "pg": "^8.11.3",
-    "rxjs": "^7.8.1"
+    "node-key-sender": "^1.0.11",
+    "pg": "^8.11.3"
   }
 }
